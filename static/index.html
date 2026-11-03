@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clip Detective</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a0b'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23d6ff3f'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0a0a0b; --panel:#121214; --line:#232326; --ink:#ededf0;
+    --dim:#8b8b93; --accent:#d6ff3f; --warn:#ff5c5c;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+       -webkit-font-smoothing:antialiased;min-height:100vh}
+  a{color:inherit}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 24px 60px}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;
+         gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:18px}
+  h1{font-size:19px;letter-spacing:-.3px;font-weight:600;display:flex;align-items:center;gap:10px}
+  h1 .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);
+          box-shadow:0 0 10px var(--accent)}
+  .sub{font-family:var(--mono);font-size:11.5px;color:var(--dim);letter-spacing:.02em}
+  .sub b{color:var(--ink);font-weight:500}
+
+  .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:22px;margin-top:22px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+
+  .drop{border:1px dashed #2e2e33;border-radius:12px;background:var(--panel);
+        min-height:210px;display:flex;flex-direction:column;align-items:center;
+        justify-content:center;gap:10px;cursor:pointer;transition:.15s;padding:26px;text-align:center}
+  .drop:hover,.drop.over{border-color:var(--accent);background:#14160e}
+  .drop .big{font-size:15px;font-weight:550}
+  .drop .hint{font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.7}
+  .drop input{display:none}
+
+  video{width:100%;border-radius:10px;background:#000;display:none;border:1px solid var(--line)}
+  .strip{display:none;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:6px;margin-top:12px}
+  .frame{position:relative;border-radius:6px;overflow:hidden;border:1px solid var(--line);
+         cursor:pointer;background:#000;aspect-ratio:16/9}
+  .frame img{width:100%;height:100%;object-fit:cover;display:block;opacity:.82;transition:.15s}
+  .frame:hover img{opacity:1}
+  .frame span{position:absolute;left:0;bottom:0;background:rgba(0,0,0,.82);
+              font-family:var(--mono);font-size:9.5px;padding:1px 4px;color:var(--accent);border-radius:0 4px 0 0}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .panel h2{font-size:12px;font-family:var(--mono);text-transform:uppercase;
+            letter-spacing:.09em;color:var(--dim);font-weight:500;margin-bottom:14px}
+
+  .askrow{display:flex;gap:8px}
+  input[type=text]{flex:1;background:#0c0c0e;border:1px solid var(--line);border-radius:8px;
+                   padding:11px 13px;color:var(--ink);font-size:14px;font-family:var(--sans)}
+  input[type=text]:focus{outline:none;border-color:var(--accent)}
+  button{background:var(--accent);color:#0a0a0b;border:0;border-radius:8px;padding:11px 18px;
+         font-weight:650;font-size:13.5px;cursor:pointer;font-family:var(--sans)}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .chip{background:#1a1a1e;border:1px solid var(--line);color:var(--dim);font-size:11.5px;
+        padding:5px 9px;border-radius:20px;cursor:pointer;font-family:var(--mono)}
+  .chip:hover{color:var(--ink);border-color:#3a3a42}
+
+  .log{margin-top:16px;display:flex;flex-direction:column;gap:14px;max-height:520px;overflow-y:auto}
+  .q{font-family:var(--mono);font-size:12px;color:var(--accent);
+     border-left:2px solid var(--accent);padding-left:9px}
+  .a{font-size:14.2px;line-height:1.62;white-space:pre-wrap;color:#dcdce2}
+  .a .ts{background:rgba(214,255,63,.13);color:var(--accent);border-radius:4px;
+         padding:0 4px;font-family:var(--mono);font-size:12.5px;cursor:pointer;
+         border-bottom:1px solid rgba(214,255,63,.35)}
+  .meta{font-family:var(--mono);font-size:10.5px;color:#5f5f68;margin-top:7px}
+  .spin{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:14px}
+  .spin::after{content:"▌";animation:bl 1s steps(2) infinite;color:var(--accent)}
+  @keyframes bl{50%{opacity:0}}
+  .err{color:var(--warn);font-family:var(--mono);font-size:12px;margin-top:10px}
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:16px;
+         font-family:var(--mono);font-size:11px;color:#55555d;display:flex;
+         justify-content:space-between;gap:14px;flex-wrap:wrap}
+  footer a{color:#8b8b93;text-decoration:none;border-bottom:1px solid #2b2b31}
+  footer a:hover{color:var(--accent);border-bottom-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="dot"></span>Clip Detective</h1>
+    <div class="sub">LFM3-VL-2B · <b>1.9B params</b> · running on this machine · nothing uploaded</div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="drop" id="drop">
+        <div class="big">Drop a video</div>
+        <div class="hint">screen recording · lecture · phone clip · camera feed<br>
+          it samples the frames that matter, then you interrogate it</div>
+        <input type="file" id="file" accept="video/*">
+      </div>
+      <video id="vid" controls playsinline></video>
+      <div class="strip" id="strip"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Interrogate</h2>
+      <div class="askrow">
+        <input type="text" id="q" placeholder="What happens in this clip?" disabled>
+        <button id="go" disabled>Ask</button>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="log" id="log"></div>
+      <div class="spin" id="spin" style="display:none">thinking over sampled frames</div>
+      <div class="err" id="err" style="display:none"></div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Built By <a href="https://harishkotra.me" target="_blank" rel="noopener">Harish Kotra</a></span>
+    <span>Checkout my <a href="https://dailybuild.xyz" target="_blank" rel="noopener">other builds</a></span>
+  </footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const drop = $('#drop'), file = $('#file'), vid = $('#vid'), strip = $('#strip');
+const q = $('#q'), go = $('#go'), log = $('#log'), spin = $('#spin'), err = $('#err');
+let clip = null;
+
+const SUGGESTIONS = [
+  "What happens in this clip?",
+  "What error or problem is on screen?",
+  "What changed between the start and the end?",
+  "Read any text that appears.",
+  "Where exactly does the useful part start?"
+];
+
+drop.onclick = () => file.click();
+['dragenter','dragover'].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.add('over');
+}));
+['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.remove('over');
+}));
+drop.addEventListener('drop', ev => { if (ev.dataTransfer.files[0]) upload(ev.dataTransfer.files[0]); });
+file.onchange = () => { if (file.files[0]) upload(file.files[0]); };
+
+function showErr(m){ err.textContent = m; err.style.display = 'block'; }
+function clearErr(){ err.style.display = 'none'; }
+
+function fmt(t){ return String(Math.floor(t/60)).padStart(2,'0') + ':' + String(Math.floor(t%60)).padStart(2,'0'); }
+
+async function upload(f) {
+  clearErr();
+  drop.querySelector('.big').textContent = 'Sampling frames…';
+  log.innerHTML = ''; strip.innerHTML = ''; strip.style.display = 'none';
+  try {
+    const buf = await f.arrayBuffer();
+    const r = await fetch('/api/upload', { method:'POST', headers:{'X-Filename': f.name}, body: buf });
+    const meta = await r.json();
+    if (!r.ok) throw new Error(meta.error || 'upload failed');
+    clip = meta;
+
+    vid.style.display = 'block';
+    vid.src = URL.createObjectURL(f);
+    drop.style.display = 'none';
+
+    strip.style.display = 'grid';
+    meta.frames.forEach(fr => {
+      const d = document.createElement('div');
+      d.className = 'frame';
+      d.innerHTML = `<img src="/frames/${meta.id}/${fr.f}" alt=""><span>${fmt(fr.t)}</span>`;
+      d.onclick = () => { vid.currentTime = fr.t; vid.play(); };
+      strip.appendChild(d);
+    });
+
+    q.disabled = false; go.disabled = false; q.focus();
+    chips.innerHTML = '';
+    SUGGESTIONS.forEach(s => {
+      const c = document.createElement('div');
+      c.className = 'chip'; c.textContent = s;
+      c.onclick = () => { q.value = s; ask(); };
+      chips.appendChild(c);
+    });
+    const m = document.createElement('div');
+    m.className = 'meta';
+    m.textContent = `${meta.frames.length} frames sampled across ${fmt(meta.duration)}`;
+    log.appendChild(m);
+  } catch (e) {
+    showErr(e.message);
+    drop.querySelector('.big').textContent = 'Drop a video';
+  }
+}
+
+function linkTimestamps(text){
+  return text.replace(/\b(\d{1,2}):(\d{2})\b/g, (full, m, s) => {
+    const t = parseInt(m,10)*60 + parseInt(s,10);
+    return `<span class="ts" data-t="${t}">${m}:${s}</span>`;
+  });
+}
+
+async function ask(){
+  const text = q.value.trim();
+  if (!text || !clip) return;
+  clearErr();
+  q.value = '';
+  go.disabled = true; spin.style.display = 'block';
+
+  const qd = document.createElement('div');
+  qd.className = 'q'; qd.textContent = text;
+  log.appendChild(qd);
+
+  try {
+    const r = await fetch('/api/ask', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ id: clip.id, question: text })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'model error');
+
+    const ad = document.createElement('div');
+    ad.className = 'a';
+    ad.innerHTML = linkTimestamps(d.answer).replace(/&/g,'&amp;');
+    log.appendChild(ad);
+    ad.querySelectorAll('.ts').forEach(el => {
+      el.onclick = () => { vid.currentTime = +el.dataset.t; vid.play(); };
+    });
+    const md = document.createElement('div');
+    md.className = 'meta';
+    md.textContent = `${d.frames} frames · ${d.seconds}s · ${d.tokens} tokens · 0 cloud calls`;
+    log.appendChild(md);
+    log.scrollTop = log.scrollHeight;
+  } catch (e) {
+    showErr(e.message);
+  } finally {
+    spin.style.display = 'none'; go.disabled = false; q.focus();
+  }
+}
+
+go.onclick = ask;
+q.addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
+</script>
+</body>
+</html>
